@@ -3,11 +3,13 @@ package quiche
 import (
 	"context"
 	"sync"
+
+	"github.com/ryotarai/quiche"
 )
 
-var _ Cache[int] = &memory[int]{}
+var _ quiche.Cache[int] = &memory[int]{}
 
-func NewMemory[T any]() *memory[T] {
+func New[T any]() *memory[T] {
 	return &memory[T]{
 		cache: sync.Map{},
 	}
@@ -26,7 +28,7 @@ func (m *memory[T]) Get(ctx context.Context, key string) (T, error) {
 	v, ok := m.cache.Load(key)
 	if !ok {
 		var zero T
-		return zero, ErrNotFound
+		return zero, quiche.ErrNotFound
 	}
 	return v.(T), nil
 }
@@ -35,7 +37,7 @@ func (m *memory[T]) Fetch(ctx context.Context, key string, f func() (T, error)) 
 	v, err := m.Get(ctx, key)
 	if err == nil {
 		return v, nil
-	} else if err != ErrNotFound {
+	} else if err != quiche.ErrNotFound {
 		var zero T
 		return zero, err
 	}

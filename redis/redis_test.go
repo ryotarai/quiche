@@ -6,9 +6,15 @@ import (
 	"time"
 
 	"github.com/redis/rueidis"
+	"github.com/ryotarai/quiche"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type entry struct {
+	ID   int
+	Name string
+}
 
 func TestCache(t *testing.T) {
 	client, err := rueidis.NewClient(rueidis.ClientOption{
@@ -17,7 +23,7 @@ func TestCache(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	m := NewRedis[entry](client, "quiche-test", time.Hour)
+	m := New[entry](client, "quiche-test", time.Hour)
 
 	ctx := context.Background()
 
@@ -26,7 +32,7 @@ func TestCache(t *testing.T) {
 	assert.NoError(t, m.Delete(ctx, "not-exist-key"))
 
 	_, err = m.Get(ctx, "key")
-	assert.Equal(t, ErrNotFound, err)
+	assert.Equal(t, quiche.ErrNotFound, err)
 
 	v, err := m.Fetch(ctx, "key", func() (entry, error) {
 		return entry{

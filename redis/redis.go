@@ -7,11 +7,12 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/redis/rueidis"
+	"github.com/ryotarai/quiche"
 )
 
-var _ Cache[int] = &redis[int]{}
+var _ quiche.Cache[int] = &redis[int]{}
 
-func NewRedis[T any](client rueidis.Client, key string, ttl time.Duration) *redis[T] {
+func New[T any](client rueidis.Client, key string, ttl time.Duration) *redis[T] {
 	return &redis[T]{
 		key:    fmt.Sprintf("quiche:%s", key),
 		client: client,
@@ -35,13 +36,26 @@ func (r *redis[T]) Set(ctx context.Context, key string, value T) error {
 }
 
 func (r *redis[T]) Get(ctx context.Context, key string) (T, error) {
-	result := r.client.DoCache(ctx, r.client.B().Hget().Key(r.key).Field(key).Cache(), r.ttl)
+	return r.get(ctx, key, true)
+}
+
+func (r *redis[T]) GetWithoutCache(ctx context.Context, key string) (T, error) {
+	return r.get(ctx, key, false)
+}
+
+func (r *redis[T]) get(ctx context.Context, key string, withCache bool) (T, error) {
+	var result rueidis.RedisResult
+	if withCache {
+		result = r.client.DoCache(ctx, r.client.B().Hget().Key(r.key).Field(key).Cache(), r.ttl)
+	} else {
+		result = r.client.Do(ctx, r.client.B().Hget().Key(r.key).Field(key).Build())
+	}
 
 	b, err := result.AsBytes()
 	if err != nil {
 		var zero T
 		if rueidis.IsRedisNil(err) {
-			return zero, ErrNotFound
+			return zero, quiche.ErrNotFound
 		} else {
 			return zero, err
 		}
@@ -60,7 +74,7 @@ func (r *redis[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (
 	v, err := r.Get(ctx, key)
 	if err == nil {
 		return v, nil
-	} else if err != ErrNotFound {
+	} else if err != quiche.ErrNotFound {
 		var zero T
 		return zero, err
 	}

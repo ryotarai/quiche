@@ -8,7 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/rueidis"
-	"github.com/ryotarai/quiche"
+	qredis "github.com/ryotarai/quiche/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +37,7 @@ func TestSelect(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cache := quiche.NewRedis[string](client, "quiche-sqlx-test", time.Hour)
+	cache := qredis.New[string](client, "quiche-sqlx-test", time.Hour)
 	cachedDB := New(db, cache)
 
 	mock.MatchExpectationsInOrder(true)

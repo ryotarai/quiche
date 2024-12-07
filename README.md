@@ -2,22 +2,26 @@
 
 ```go
 import (
-    "github.com/ryotarai/quiche"
+    qredis "github.com/ryotarai/quiche/redis"
+    qmemory "github.com/ryotarai/quiche/memory"
     qsqlx "github.com/ryotarai/quiche/sqlx"
 )
 
-cache = quiche.NewMemory[User]()
+cache = qmemory.New[User]()
 // OR
 redis, err := rueidis.NewClient(rueidis.ClientOption{
     InitAddress: []string{"127.0.0.1:6379"},
     // CacheSizeEachConn: 128 * (1 << 20), // 128 MiB
 })
 maxClientTTL := time.Hour // the maximum TTL on the client side
-cache = quiche.NewRedis[User](redis, "cache-name", maxClientTTL)
+cache = qredis.New[User](redis, "cache-name", maxClientTTL)
+
 
 cache.Set("key1", User{})
 cache.Get("key1")
+cache.GetWithoutCache("key1") // Only Redis has this method.
 cache.Fetch("key1", func() User { return User{} })
+
 
 // A wrapper of sqlx is also available.
 cachedDB := qsqlx.New(db, cache)
