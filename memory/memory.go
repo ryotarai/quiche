@@ -7,24 +7,24 @@ import (
 	"github.com/ryotarai/quiche"
 )
 
-var _ quiche.Cache[int] = &memory[int]{}
+var _ quiche.Cache[int] = &Memory[int]{}
 
-func New[T any]() *memory[T] {
-	return &memory[T]{
+func New[T any]() *Memory[T] {
+	return &Memory[T]{
 		cache: sync.Map{},
 	}
 }
 
-type memory[T any] struct {
+type Memory[T any] struct {
 	cache sync.Map
 }
 
-func (m *memory[T]) Set(ctx context.Context, key string, value T) error {
+func (m *Memory[T]) Set(ctx context.Context, key string, value T) error {
 	m.cache.Store(key, value)
 	return nil
 }
 
-func (m *memory[T]) Get(ctx context.Context, key string) (T, error) {
+func (m *Memory[T]) Get(ctx context.Context, key string) (T, error) {
 	v, ok := m.cache.Load(key)
 	if !ok {
 		var zero T
@@ -33,7 +33,7 @@ func (m *memory[T]) Get(ctx context.Context, key string) (T, error) {
 	return v.(T), nil
 }
 
-func (m *memory[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (T, error) {
+func (m *Memory[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (T, error) {
 	v, err := m.Get(ctx, key)
 	if err == nil {
 		return v, nil
@@ -56,7 +56,7 @@ func (m *memory[T]) Fetch(ctx context.Context, key string, f func() (T, error)) 
 	return v, nil
 }
 
-func (m *memory[T]) Delete(ctx context.Context, key string) error {
+func (m *Memory[T]) Delete(ctx context.Context, key string) error {
 	m.cache.Delete(key)
 	return nil
 }

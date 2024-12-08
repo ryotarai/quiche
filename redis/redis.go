@@ -10,23 +10,23 @@ import (
 	"github.com/ryotarai/quiche"
 )
 
-var _ quiche.Cache[int] = &redis[int]{}
+var _ quiche.Cache[int] = &Redis[int]{}
 
-func New[T any](client rueidis.Client, key string, ttl time.Duration) *redis[T] {
-	return &redis[T]{
+func New[T any](client rueidis.Client, key string, ttl time.Duration) *Redis[T] {
+	return &Redis[T]{
 		key:    fmt.Sprintf("quiche:%s", key),
 		client: client,
 		ttl:    ttl,
 	}
 }
 
-type redis[T any] struct {
+type Redis[T any] struct {
 	key    string
 	client rueidis.Client
 	ttl    time.Duration
 }
 
-func (r *redis[T]) Set(ctx context.Context, key string, value T) error {
+func (r *Redis[T]) Set(ctx context.Context, key string, value T) error {
 	serialized, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -35,15 +35,15 @@ func (r *redis[T]) Set(ctx context.Context, key string, value T) error {
 	return r.client.Do(ctx, r.client.B().Hset().Key(r.key).FieldValue().FieldValue(key, string(serialized)).Build()).Error()
 }
 
-func (r *redis[T]) Get(ctx context.Context, key string) (T, error) {
+func (r *Redis[T]) Get(ctx context.Context, key string) (T, error) {
 	return r.get(ctx, key, true)
 }
 
-func (r *redis[T]) GetWithoutCache(ctx context.Context, key string) (T, error) {
+func (r *Redis[T]) GetWithoutCache(ctx context.Context, key string) (T, error) {
 	return r.get(ctx, key, false)
 }
 
-func (r *redis[T]) get(ctx context.Context, key string, withCache bool) (T, error) {
+func (r *Redis[T]) get(ctx context.Context, key string, withCache bool) (T, error) {
 	var result rueidis.RedisResult
 	if withCache {
 		result = r.client.DoCache(ctx, r.client.B().Hget().Key(r.key).Field(key).Cache(), r.ttl)
@@ -70,7 +70,40 @@ func (r *redis[T]) get(ctx context.Context, key string, withCache bool) (T, erro
 	return ret, nil
 }
 
-func (r *redis[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (T, error) {
+func (r *Redis[T]) GetAll(ctx context.Context) ([]T, error) {
+	return r.getall(ctx, true)
+}
+
+func (r *Redis[T]) GetAllWithoutCache(ctx context.Context) ([]T, error) {
+	return r.getall(ctx, false)
+}
+
+func (r *Redis[T]) getall(ctx context.Context, withCache bool) ([]T, error) {
+	var result rueidis.RedisResult
+	if withCache {
+		result = r.client.DoCache(ctx, r.client.B().Hgetall().Key(r.key).Cache(), r.ttl)
+	} else {
+		result = r.client.Do(ctx, r.client.B().Hgetall().Key(r.key).Build())
+	}
+
+	b, err := result.AsBytes()
+	if err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, quiche.ErrNotFound
+		} else {
+			return nil, err
+		}
+	}
+
+	var ret []T
+	if err := json.Unmarshal(b, &ret); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (r *Redis[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (T, error) {
 	v, err := r.Get(ctx, key)
 	if err == nil {
 		return v, nil
@@ -93,6 +126,6 @@ func (r *redis[T]) Fetch(ctx context.Context, key string, f func() (T, error)) (
 	return v, nil
 }
 
-func (r *redis[T]) Delete(ctx context.Context, key string) error {
+func (r *Redis[T]) Delete(ctx context.Context, key string) error {
 	return r.client.Do(ctx, r.client.B().Hdel().Key(r.key).Field(key).Build()).Error()
 }
