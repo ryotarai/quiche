@@ -86,7 +86,7 @@ func (r *Redis[T]) getall(ctx context.Context, withCache bool) ([]T, error) {
 		result = r.client.Do(ctx, r.client.B().Hgetall().Key(r.key).Build())
 	}
 
-	b, err := result.AsBytes()
+	m, err := result.AsMap()
 	if err != nil {
 		if rueidis.IsRedisNil(err) {
 			return nil, quiche.ErrNotFound
@@ -96,8 +96,18 @@ func (r *Redis[T]) getall(ctx context.Context, withCache bool) ([]T, error) {
 	}
 
 	var ret []T
-	if err := json.Unmarshal(b, &ret); err != nil {
-		return nil, err
+	for _, v := range m {
+		b, err := v.AsBytes()
+		if err != nil {
+			return nil, err
+		}
+
+		var parsed T
+		if err := json.Unmarshal(b, &parsed); err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, parsed)
 	}
 
 	return ret, nil
